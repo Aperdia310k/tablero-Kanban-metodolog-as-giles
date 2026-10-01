@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificador Ágil: Scrum, Kanban o No Ágil</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        .drag-over {
+            border-style: dashed !important;
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.05) !important;
+        }
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+        .touch-dragging {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            transform: scale(1.02);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
+
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    Clasificador de Metodologías
+                </h1>
+                <p class="text-xs text-slate-400">Arrastra cada situación a la metodología que mejor corresponda</p>
+            </div>
+
+            <!-- Indicadores -->
+            <div class="flex items-center gap-6 bg-slate-900/60 px-5 py-2 rounded-xl border border-slate-700">
+                <div class="flex items-center gap-2">
+                    <i class="fa-regular fa-clock text-blue-400"></i>
+                    <span id="timer-display" class="font-mono text-lg font-bold text-slate-200">00:00</span>
+                </div>
+                <div class="h-6 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-indigo-400"></i>
+                    <span id="placed-count" class="font-bold text-slate-200">0 / 15</span>
+                </div>
+                <div class="h-6 w-px bg-slate-700"></div>
+                <button id="btn-verify" onclick="game.verify()" class="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Verificar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto w-full p-4 md:p-6 flex-1 flex flex-col gap-6">
+        
+        <!-- Zona de Tarjetas Sin Clasificar -->
+        <section class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700 shadow-inner">
+            <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-box-archive text-amber-400"></i> Casos Pendientes de Clasificar
+            </h2>
+            <div id="pool-zone" class="drop-zone grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 min-h-[120px] p-2 rounded-xl border-2 border-dashed border-slate-700/60 transition-all">
+                <!-- Las tarjetas se generan dinámicamente -->
+            </div>
+        </section>
+
+        <!-- Tablero de 3 Columnas -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+            
+            <!-- Columna Scrum -->
+            <div class="bg-slate-800/50 rounded-2xl border border-slate-700 flex flex-col overflow-hidden">
+                <div class="bg-blue-900/30 border-b border-slate-700 p-4">
+                    <h3 class="text-lg font-bold text-blue-400 flex items-center justify-between">
+                        <span><i class="fa-solid fa-rotate text-blue-400 mr-2"></i> Scrum</span>
+                        <span id="scrum-count" class="text-xs bg-blue-900/60 text-blue-300 px-2.5 py-1 rounded-full border border-blue-800">0</span>
+                    </h3>
+                </div>
+                <div id="scrum-zone" data-category="scrum" class="drop-zone p-3 flex-1 flex flex-col gap-3 min-h-[250px] border-2 border-transparent transition-all">
+                </div>
+            </div>
+
+            <!-- Columna Kanban -->
+            <div class="bg-slate-800/50 rounded-2xl border border-slate-700 flex flex-col overflow-hidden">
+                <div class="bg-purple-900/30 border-b border-slate-700 p-4">
+                    <h3 class="text-lg font-bold text-purple-400 flex items-center justify-between">
+                        <span><i class="fa-solid fa-bars-staggered text-purple-400 mr-2"></i> Kanban</span>
+                        <span id="kanban-count" class="text-xs bg-purple-900/60 text-purple-300 px-2.5 py-1 rounded-full border border-purple-800">0</span>
+                    </h3>
+                </div>
+                <div id="kanban-zone" data-category="kanban" class="drop-zone p-3 flex-1 flex flex-col gap-3 min-h-[250px] border-2 border-transparent transition-all">
+                </div>
+            </div>
+
+            <!-- Columna No Ágil -->
+            <div class="bg-slate-800/50 rounded-2xl border border-slate-700 flex flex-col overflow-hidden">
+                <div class="bg-rose-900/30 border-b border-slate-700 p-4">
+                    <h3 class="text-lg font-bold text-rose-400 flex items-center justify-between">
+                        <span><i class="fa-solid fa-diagram-project text-rose-400 mr-2"></i> No Ágil / Tradicional</span>
+                        <span id="no-agile-count" class="text-xs bg-rose-900/60 text-rose-300 px-2.5 py-1 rounded-full border border-rose-800">0</span>
+                    </h3>
+                </div>
+                <div id="no-agile-zone" data-category="no-agile" class="drop-zone p-3 flex-1 flex flex-col gap-3 min-h-[250px] border-2 border-transparent transition-all">
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <div id="modal-result" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center space-y-6">
+            <div id="modal-icon" class="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl">
+                <!-- Icono dinámico -->
+            </div>
+            
+            <div>
+                <h3 id="modal-title" class="text-2xl font-bold text-slate-100">Resultados del Análisis</h3>
+                <p id="modal-subtitle" class="text-sm text-slate-400 mt-1"></p>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/80 grid grid-cols-2 gap-4">
+                <div class="text-center">
+                    <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Aciertos</span>
+                    <span id="modal-score" class="text-2xl font-bold text-emerald-400">0 / 15</span>
+                </div>
+                <div class="text-center">
+                    <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Tiempo</span>
+                    <span id="modal-time" class="text-2xl font-bold text-blue-400">00:00</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="game.reset()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-xl transition-all">
+                    Reintentar
+                </button>
+                <button onclick="game.closeModal()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all">
+                    Revisar Tablero
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-slate-950 border-t border-slate-800 py-3 text-center text-xs text-slate-500">
+        Juego interactivo de clasificación metodológica &bull; Simulador de Análisis Organizacional
+    </footer>
+
+    <script>
+        // Datos de las 15 situaciones
+        const CARDS_DATA = [
+            // SCRUM (5)
+            { id: 1, text: "El equipo trabaja en iteraciones fijas de 2 semanas con entregas funcionales al final de cada ciclo.", category: "scrum" },
+            { id: 2, text: "Se realiza una reunión diaria de 15 minutos para sincronizar el trabajo del día y detectar bloqueos.", category: "scrum" },
+            { id: 3, text: "Un rol específico gestiona y prioriza la lista de requisitos del producto (Product Backlog).", category: "scrum" },
+            { id: 4, text: "Al finalizar cada ciclo se inspecciona el trabajo completado en una demo ante los interesados.", category: "scrum" },
+            { id: 5, text: "El equipo dedica tiempo al final del ciclo para analizar cómo mejorar sus procesos internos.", category: "scrum" },
+
+            // KANBAN (5)
+            { id: 6, text: "Se limita la cantidad máxima de tareas que se pueden realizar simultáneamente en cada fase.", category: "kanban" },
+            { id: 7, text: "El flujo de trabajo es continuo, respondiendo a la demanda en tiempo real sin entregas fijas.", category: "kanban" },
+            { id: 8, text: "Se utilizan métricas como el tiempo de ciclo (Lead Time) para medir la velocidad de entrega.", category: "kanban" },
+            { id: 9, text: "El estado de todo el trabajo operativo se visualiza de forma clara en columnas según su fase.", category: "kanban" },
+            { id: 10, text: "Se optimiza el paso de las tareas evitando cuellos de botella mediante un sistema 'pull'.", category: "kanban" },
+
+            // NO ÁGIL (5)
+            { id: 11, text: "Todos los requisitos se definen por completo y de forma rígida antes de iniciar el diseño.", category: "no-agile" },
+            { id: 12, text: "La fase de pruebas solo comienza una vez finalizada por completo la fase de desarrollo.", category: "no-agile" },
+            { id: 13, text: "Cualquier cambio en el alcance requiere un exhaustivo proceso formal de aprobación previa.", category: "no-agile" },
+            { id: 14, text: "El plan de proyecto a varios meses vista es estricto y el éxito se mide según su cumplimiento exacto.", category: "no-agile" },
+            { id: 15, text: "No se entrega ningún producto ejecutable al cliente hasta la fase final del proyecto.", category: "no-agile" }
+        ];
+
+        class AgileGame {
+            constructor() {
+                this.cards = [];
+                this.timerSeconds = 0;
+                this.timerInterval = null;
+                this.isVerified = false;
+
+                // Eventos
+                this.initDOM();
+                this.reset();
+            }
+
+            initDOM() {
+                this.poolZone = document.getElementById('pool-zone');
+                this.dropZones = document.querySelectorAll('.drop-zone');
+                this.timerDisplay = document.getElementById('timer-display');
+                this.placedCountDisplay = document.getElementById('placed-count');
+                this.modal = document.getElementById('modal-result');
+
+                this.setupDragAndDrop();
+            }
+
+            reset() {
+                this.isVerified = false;
+                this.closeModal();
+                this.stopTimer();
+                this.timerSeconds = 0;
+                this.updateTimerDisplay();
+                this.startTimer();
+
+                // Limpiar zonas
+                this.dropZones.forEach(zone => zone.innerHTML = '');
+
+                // Mezclar y renderizar tarjetas
+                this.cards = [...CARDS_DATA].sort(() => Math.random() - 0.5);
+                this.cards.forEach(card => {
+                    const cardElem = this.createCardElement(card);
+                    this.poolZone.appendChild(cardElem);
+                });
+
+                this.updateCounts();
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                this.timerInterval = setInterval(() => {
+                    this.timerSeconds++;
+                    this.updateTimerDisplay();
+                }, 1000);
+            }
+
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+
+            updateTimerDisplay() {
+                const mins = Math.floor(this.timerSeconds / 60).toString().padStart(2, '0');
+                const secs = (this.timerSeconds % 60).toString().padStart(2, '0');
+                this.timerDisplay.textContent = `${mins}:${secs}`;
+            }
+
+            createCardElement(card) {
+                const div = document.createElement('div');
+                div.id = `card-${card.id}`;
+                div.dataset.id = card.id;
+                div.dataset.category = card.category;
+                div.draggable = true;
+                div.className = "card bg-slate-800 hover:bg-slate-750 border border-slate-600/80 hover:border-slate-500 rounded-xl p-3.5 shadow-sm cursor-grab active:cursor-grabbing transition-all select-none text-xs md:text-sm text-slate-200 flex items-center justify-between gap-3 group";
+
+                div.innerHTML = `
+                    <span class="flex-1">${card.text}</span>
+                    <i class="fa-solid fa-grip-vertical text-slate-500 group-hover:text-slate-400"></i>
+                `;
+
+                // Eventos Drag
+                div.addEventListener('dragstart', (e) => this.handleDragStart(e, div));
+                div.addEventListener('dragend', (e) => this.handleDragEnd(e, div));
+
+                // Soporte táctil básico
+                this.addTouchSupport(div);
+
+                return div;
+            }
+
+            setupDragAndDrop() {
+                this.dropZones.forEach(zone => {
+                    zone.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        zone.classList.add('drag-over');
+                    });
+
+                    zone.addEventListener('dragleave', () => {
+                        zone.classList.remove('drag-over');
+                    });
+
+                    zone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('drag-over');
+                        const cardId = e.dataTransfer.getData('text/plain');
+                        const cardElem = document.getElementById(cardId);
+                        if (cardElem) {
+                            zone.appendChild(cardElem);
+                            this.updateCounts();
+                            if (this.isVerified) this.resetVerificationStyles();
+                        }
+                    });
+                });
+            }
+
+            handleDragStart(e, cardElem) {
+                e.dataTransfer.setData('text/plain', cardElem.id);
+                cardElem.classList.add('dragging');
+            }
+
+            handleDragEnd(e, cardElem) {
+                cardElem.classList.remove('dragging');
+            }
+
+            // Soporte para pantallas táctiles (Drag and Drop táctil)
+            addTouchSupport(cardElem) {
+                let touchClone = null;
+
+                cardElem.addEventListener('touchstart', (e) => {
+                    const touch = e.touches[0];
+                    cardElem.classList.add('opacity-50');
+
+                    touchClone = cardElem.cloneNode(true);
+                    touchClone.classList.add('touch-dragging', 'w-64');
+                    document.body.appendChild(touchClone);
+
+                    this.moveTouchClone(touchClone, touch);
+                }, { passive: false });
+
+                cardElem.addEventListener('touchmove', (e) => {
+                    if (!touchClone) return;
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    this.moveTouchClone(touchClone, touch);
+                }, { passive: false });
+
+                cardElem.addEventListener('touchend', (e) => {
+                    if (!touchClone) return;
+                    cardElem.classList.remove('opacity-50');
+
+                    const touch = e.changedTouches[0];
+                    touchClone.remove();
+                    touchClone = null;
+
+                    // Buscar elemento debajo de la posición final
+                    const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const dropZone = targetElem ? targetElem.closest('.drop-zone') : null;
+
+                    if (dropZone) {
+                        dropZone.appendChild(cardElem);
+                        this.updateCounts();
+                        if (this.isVerified) this.resetVerificationStyles();
+                    }
+                });
+            }
+
+            moveTouchClone(clone, touch) {
+                clone.style.left = `${touch.clientX - 100}px`;
+                clone.style.top = `${touch.clientY - 30}px`;
+            }
+
+            updateCounts() {
+                const placed = 15 - this.poolZone.children.length;
+                this.placedCountDisplay.textContent = `${placed} / 15`;
+
+                document.getElementById('scrum-count').textContent = document.getElementById('scrum-zone').children.length;
+                document.getElementById('kanban-count').textContent = document.getElementById('kanban-zone').children.length;
+                document.getElementById('no-agile-count').textContent = document.getElementById('no-agile-zone').children.length;
+            }
+
+            verify() {
+                this.stopTimer();
+                this.isVerified = true;
+                let score = 0;
+
+                const zones = [
+                    { elem: document.getElementById('scrum-zone'), cat: 'scrum' },
+                    { elem: document.getElementById('kanban-zone'), cat: 'kanban' },
+                    { elem: document.getElementById('no-agile-zone'), cat: 'no-agile' }
+                ];
+
+                zones.forEach(zone => {
+                    const cards = Array.from(zone.elem.children);
+                    cards.forEach(card => {
+                        const correctCategory = card.dataset.category;
+                        if (correctCategory === zone.cat) {
+                            score++;
+                            card.className = card.className.replace(/border-[^\s]+/, '') + " border-2 border-emerald-500 bg-emerald-950/20";
+                        } else {
+                            card.className = card.className.replace(/border-[^\s]+/, '') + " border-2 border-rose-500 bg-rose-950/20";
+                        }
+                    });
+                });
+
+                // Marcar tarjetas que se quedaron en la piscina sin clasificar
+                Array.from(this.poolZone.children).forEach(card => {
+                    card.className = card.className.replace(/border-[^\s]+/, '') + " border-2 border-amber-500/80 bg-amber-950/10";
+                });
+
+                this.showResultModal(score);
+            }
+
+            resetVerificationStyles() {
+                document.querySelectorAll('.card').forEach(card => {
+                    card.classList.remove('border-emerald-500', 'border-rose-500', 'border-amber-500/80', 'bg-emerald-950/20', 'bg-rose-950/20', 'bg-amber-950/10');
+                    card.classList.add('border-slate-600/80');
+                });
+            }
+
+            showResultModal(score) {
+                const modalIcon = document.getElementById('modal-icon');
+                const modalTitle = document.getElementById('modal-title');
+                const modalSubtitle = document.getElementById('modal-subtitle');
+
+                document.getElementById('modal-score').textContent = `${score} / 15`;
+                document.getElementById('modal-time').textContent = this.timerDisplay.textContent;
+
+                if (score === 15) {
+                    modalIcon.className = "w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    modalIcon.innerHTML = `<i class="fa-solid fa-trophy"></i>`;
+                    modalTitle.textContent = "¡Excelente Trabajo!";
+                    modalSubtitle.textContent = "Has clasificado todas las situaciones correctamente.";
+                } else if (score >= 10) {
+                    modalIcon.className = "w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-blue-500/20 text-blue-400 border border-blue-500/30";
+                    modalIcon.innerHTML = `<i class="fa-solid fa-star"></i>`;
+                    modalTitle.textContent = "¡Buen Intento!";
+                    modalSubtitle.textContent = "Tienes un buen entendimiento, pero quedan algunos detalles por afinar.";
+                } else {
+                    modalIcon.className = "w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                    modalIcon.innerHTML = `<i class="fa-solid fa-rotate-left"></i>`;
+                    modalTitle.textContent = "Sigue Practicando";
+                    modalSubtitle.textContent = "Revisa las diferencias clave entre marcos ágiles y tradicionales.";
+                }
+
+                this.modal.classList.remove('hidden');
+            }
+
+            closeModal() {
+                this.modal.classList.add('hidden');
+            }
+        }
+
+        // Inicializar juego al cargar la página
+        let game;
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new AgileGame();
+        });
+    </script>
+</body>
+</html>
